@@ -1,55 +1,199 @@
-
+#' Create Elevation and Route Plots for a Journey from A to B
+#'
+#' Generates elevation profile and route map visualizations for a journey between
+#' two locations. The function retrieves route information, calculates elevations
+#' along the path, and creates both an elevation profile plot and a route map.
+#'
+#' @param origin Character string specifying the starting location (default: "utrecht, netherlands").
+#'   Can be an address, city name, or other location identifier recognized by Google Maps.
+#' @param destination Character string specifying the ending location (default: "chäsalp, switzerland").
+#'   Can be an address, city name, or other location identifier recognized by Google Maps.
+#' @param structure Character string specifying the route structure (default: "route").
+#'   Passed to \code{\link[ggmap]{trek}}.
+#' @param mode Character string specifying the travel mode (default: 'bicycling').
+#'   Options include 'bicycling', 'driving', 'walking', or 'transit'.
+#' @param max_ylim Numeric value setting the maximum y-axis limit for the elevation plot
+#'   in meters (default: 1100).
+#' @param add_text Logical indicating whether to add a text labels to the plot (default: FALSE).
+#' @param add_box Logical indicating whether to add a box around the plot (default: FALSE).
+#' @param color_route Character string specifying the color for the route line (default: "blue").
+#' @param color_profile Character string specifying the color for the elevation profile line (default: "#f46331").
+#' @param color_box Character string specifying the color for the box (default: "darkgrey").
+#' @param background_box Character string specifying the background color for the box (default: "#f8f8f6").
+#'
+#' @return A list containing four elements:
+#'   \item{data_route}{Data frame with route coordinates (lon, lat)}
+#'   \item{data_elevation}{Data frame with distance and elevation data}
+#'   \item{plot_elevation}{ggplot object showing the elevation profile with LOESS smoothing}
+#'   \item{plot_route}{ggmap object showing the route on a map centered on Zürich}
+#'
+#' @details
+#' The function performs the following steps:
+#' \enumerate{
+#'   \item Retrieves route data using Google Maps API via \code{ggmap::trek()}
+#'   \item Converts route points to spatial features (sf objects)
+#'   \item Obtains elevation data from AWS for each point along the route
+#'   \item Calculates cumulative distances between consecutive points
+#'   \item Creates an elevation profile plot with LOESS smoothing (span = 0.1)
+#'   \item Generates a route map visualization
+#' }
+#'
+#' @note
+#' This function requires the following packages: dplyr, stringr, ggplot2, monochromeR, patchwork, ggforce, ggmap, sf, elevatr, and geosphere.
+#' An active internet connection is required to retrieve route and elevation data.
+#'
+#' @examples
+#' \dontrun{
+#' # Basic usage with default parameters
+#' result <- elevation_plot()
+#'
+#' # Custom route
+#' result <- elevation_plot(
+#'   origin = "amsterdam, netherlands",
+#'   destination = "geneva, switzerland",
+#'   mode = "driving",
+#'   max_ylim = 2000
+#' )
+#'
+#' # View the plots
+#' print(result$plot_elevation)
+#' print(result$plot_route)
+#' }
+#'
+#' @export
 
 elevation_plot <- function(origin = "utrecht, netherlands", 
                            destination = "chäsalp, switzerland",
                            structure = "route",
                            mode = 'bicycling',
-                           max_ylim = 1100) {
+                           max_ylim = 1100,
+                           add_text = FALSE, 
+                           add_box = FALSE,
+                           color_route = "blue",
+                           color_profile = "#f46331",
+                           color_box = "darkgrey",
+                           background_box = "#f8f8f6"
+                           ) {
+  
+  # create labels based on origin and destination
+  origin_label <- stringr::str_to_title(stringr::str_extract(origin, "^[^,]+"))
+  destination_label <- stringr::str_extract(destination, "^[^,]+")
+  if(grepl("chäsalp", destination_label)){
+    destination_label <- "Chäsalp\n617 m"
+  }
   
   # generate route dataframe with lon/lat points
-  route_df <- ggmap::trek(origin, destination, 
-                          mode = mode,
-                          structure = structure, output = 'simple')
+  data_route <- ggmap::trek(origin, destination, 
+                            mode = mode,
+                            structure = structure, output = 'simple')
   
-  # Convert route_df to an sf object with lon/lat
-  route_sf <- st_as_sf(route_df, coords = c("lon", "lat"), crs = 4326)
+  # convert to sf object with lon/lat
+  data_route_sf <- sf::st_as_sf(data_route, coords = c("lon", "lat"), crs = 4326)
   
-  # Get elevation data for these points (zipped to route_sf data)
-  elevation_points <- get_elev_point(route_sf, src = "aws")
+  # get elevation data for these points
+  elevation_points <- elevatr::get_elev_point(data_route_sf, src = "aws")
   
-  # Combine elevation points to a dataframe
-  elevation_df <- cbind(route_df, elevation = elevation_points$elevation)
+  # combine elevation points to a dataframe
+  elevation_df <- cbind(data_route, elevation = elevation_points$elevation)
   
-  distances <- distGeo(route_df[-nrow(route_df), c("lon", "lat")], route_df[-1, c("lon", "lat")])
+  distances <- geosphere::distGeo(data_route[-nrow(data_route), c("lon", "lat")], data_route[-1, c("lon", "lat")])
   
-  # Cumulative distance in meters
+  # cumulative distance in meters
   cumulative_dist <- c(0, cumsum(distances))
   
-  plot_df <- data.frame(
+  data_elevation <- data.frame(
     distance = c(0, distances),
     cumulative_distance = cumulative_dist,
     elevation = elevation_df$elevation
   )
   
+  # ----------------------------------------------------------------------------
   
-  route_plot <- qmap(location = 'zürich', zoom = 8) +  # zoom level, the larger the value, the more detailed the map
-    geom_path(
-      aes(x = lon, y = lat), color = "blue", size = 1, data = route_df
+  plot_route <- ggmap::qmap(location = 'zürich', zoom = 8) +  # zoom level, the larger the value, the more detailed the map
+    ggplot2::geom_path(
+      aes(x = lon, y = lat), color = color_route, size = 1, data = route_df
     )
   
-  elevation_plot <- 
-    ggplot(plot_df, aes(x = cumulative_distance, y = elevation)) +
-    #geom_line(color = "steelblue", size = 1) +
-    geom_smooth(method = "loess", se = FALSE, span = 0.1, color = "darkred", size = 1) +
-    ylim(0, max_ylim) +
-    # labs(title = "Elevation Profile of Route",
-    #      x = "Distance (meters)",
-    #      y = "Elevation (meters)") +
-    theme_bw()
+  # ----------------------------------------------------------------------------
   
-  return(list(data_route = route_df,
-              data_elevation = plot_df,
-              elevation_plot = elevation_plot, 
-              route_plot = route_plot))
+  plot_elevation <- 
+    ggplot2::ggplot(data_elevation, aes(x = cumulative_distance, y = elevation)) +
+    #ggplot2::geom_line(color = "steelblue", size = 1) +
+    ggplot2::geom_smooth(method = "loess", se = FALSE, span = 0.1, color = color_profile, size = 1) +
+    ylim(0, max_ylim) +
+    ggplot2::theme_void() 
+  
+  
+  if(add_text){ # --------------------------------------------------------------
+    
+    range_elevation <- data_elevation |> 
+      dplyr::summarise(min_elev = min(elevation),
+                max_elev = max(elevation),
+                plot_min = min_elev - 0.18 * (max_elev - min_elev),
+                plot_max = max_elev + 0.8 * (max_elev - min_elev))
+    
+    plot_elevation <- plot_elevation + 
+      ggplot2::geom_text(data = data_elevation |> filter(distance == 0), 
+                aes(x = distance, y = elevation, label = paste0(origin_label, '\n', round(elevation), ' m')),
+                vjust = -0.3 , hjust = 0.1, color = color_profile, size = 3.7) +
+      ggplot2::geom_text(data = data_elevation |> tail(1), aes(x = cumulative_distance, y = elevation, label = destination_label),
+                vjust = -0.3 , hjust = 0.8, color = color_profile, size = 3.7) +
+      ylim(range_elevation$plot_min, 
+           range_elevation$plot_max) + 
+      ggplot2::theme_void() +
+      ggplot2::coord_cartesian(clip = 'off') +  # to avoid clipping of text
+      theme(plot.margin = unit(c(0.2, 0.4, 0.2, 0.4), "cm"),
+            panel.background = element_rect(fill = "transparent", color = NA),
+            plot.background = element_rect(fill = "transparent", color = NA),
+            legend.background = element_rect(fill = "transparent", color = NA),
+            legend.box.background = element_rect(fill = "transparent", color = NA)
+      ) 
+  }
+  
+  if(add_box){ # ---------------------------------------------------------------
+    
+    box_shape <- data.frame(
+      x = c(0, 1, 1, 0),
+      y = c(0, 0, 1, 1)
+    )
+
+    plot_box <- ggplot2::ggplot(box_shape, aes(x = x, y = y)) +
+      ggforce::geom_shape(expand = unit(0.1, 'cm'), radius = unit(0.1, 'cm'),
+                 fill = color_box) +
+      ggplot2::geom_polygon(fill = background_box)+
+      theme_void() +
+      theme(plot.margin = margin(0.02,0.02,0.02,0.02, 'cm'))
+    
+    # calculate elevation difference between start and end point
+    delta_elevation <- tail(data_elevation$elevation, 1) - head(data_elevation$elevation, 1)
+    if(grepl("chäsalp", destination)){
+      delta_elevation <- 617 - head(data_elevation$elevation, 1)
+    }
+    delta_elevation <- paste0(delta_elevation, " m")
+    
+    color_profile_dark <- monochromeR::generate_palette(color_profile, modification = "go_darker", n_colors = 5)[2]
+    
+    plot_delta <- ggplot2::ggplot() +
+      annotate("text",
+               x = 0.5, y = 0.5,
+               label = bquote(atop(Delta~Altitude, bold(.(delta_elevation)))),
+               size = 5,
+               color = color_profile_dark) +
+      theme_void()
+    
+    plot_elev_delta <- plot_elevation + plot_delta + 
+      patchwork::plot_layout(widths = unit(c(4, 1), c("null")))
+    
+    plot_elevation <- plot_box + 
+      patchwork::inset_element(plot_elev_delta, left = 0.005, bottom = 0, right = 0.93, top = 1)
+    
+  }
+  
+  # ----------------------------------------------------------------------------
+  
+  return(list(data_route = data_route,
+              data_elevation = data_elevation,
+              plot_elevation = plot_elevation, 
+              plot_route = plot_route))
   
 }
