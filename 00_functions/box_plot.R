@@ -28,12 +28,12 @@ box_plot <- function(color_box = "darkgrey", background_box = "#f8f8f6"){
     y = c(0, 0, 1, 1)
   )
   
-  plot_box <- ggplot2::ggplot(box_shape, aes(x = x, y = y)) +
-    ggforce::geom_shape(expand = unit(0.1, 'cm'), radius = unit(0.1, 'cm'),
+  plot_box <- ggplot2::ggplot(box_shape, ggplot2::aes(x = x, y = y)) +
+    ggforce::geom_shape(expand = ggplot2::unit(0.1, 'cm'), radius = ggplot2::unit(0.1, 'cm'),
                         fill = color_box) +
     ggplot2::geom_polygon(fill = background_box)+
     ggplot2::theme_void() +
-    ggplot2::theme(plot.margin = margin(0.02,0.02,0.02,0.02, 'cm'))
+    ggplot2::theme(plot.margin = ggplot2::margin(0.02,0.02,0.02,0.02, 'cm'))
   
   return(plot_box)
 

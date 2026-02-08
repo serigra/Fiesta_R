@@ -38,8 +38,11 @@
 #'   \item Generates a route map visualization
 #' }
 #'
+#' Requires the \code{box_plot()} function to be available when \code{add_box = TRUE}.
+#'
 #' @note
 #' This function requires the following packages: dplyr, stringr, ggplot2, monochromeR, patchwork, ggforce, ggmap, sf, elevatr, and geosphere.
+#' A API key to the Google cloud platform is needed! see tutorial https://www.appsilon.com/post/r-ggmap.
 #' An active internet connection is required to retrieve route and elevation data.
 #'
 #' @examples
@@ -111,13 +114,13 @@ elevation_plot <- function(origin = "utrecht, netherlands",
   
   plot_route <- ggmap::qmap(location = 'zürich', zoom = 8) +  # zoom level, the larger the value, the more detailed the map
     ggplot2::geom_path(
-      aes(x = lon, y = lat), color = color_route, size = 1, data = route_df
+      ggplot2::aes(x = lon, y = lat), color = color_route, linewidth = 1, data = data_route
     )
   
   # ----------------------------------------------------------------------------
   
   plot_elevation <- 
-    ggplot2::ggplot(data_elevation, aes(x = cumulative_distance, y = elevation)) +
+    ggplot2::ggplot(data_elevation, ggplot2::aes(x = cumulative_distance, y = elevation)) +
     #ggplot2::geom_line(color = "steelblue", size = 1) +
     ggplot2::geom_smooth(method = "loess", se = FALSE, span = 0.1, color = color_profile, size = 1) +
     ggplot2::ylim(0, max_ylim) +
@@ -133,20 +136,21 @@ elevation_plot <- function(origin = "utrecht, netherlands",
                 plot_max = max_elev + 0.8 * (max_elev - min_elev))
     
     plot_elevation <- plot_elevation + 
-      ggplot2::geom_text(data = data_elevation |> filter(distance == 0), 
-                aes(x = distance, y = elevation, label = paste0(origin_label, '\n', round(elevation), ' m')),
+      ggplot2::geom_text(data = data_elevation |> dplyr::filter(distance == 0), 
+                         ggplot2::aes(x = distance, y = elevation, label = paste0(origin_label, '\n', round(elevation), ' m')),
                 vjust = -0.3 , hjust = 0.1, color = color_profile, size = 3.7) +
-      ggplot2::geom_text(data = data_elevation |> tail(1), aes(x = cumulative_distance, y = elevation, label = destination_label),
+      ggplot2::geom_text(data = data_elevation |> tail(1), 
+                         ggplot2::aes(x = cumulative_distance, y = elevation, label = destination_label),
                 vjust = -0.3 , hjust = 0.8, color = color_profile, size = 3.7) +
       ggplot2::ylim(range_elevation$plot_min, 
            range_elevation$plot_max) + 
       ggplot2::theme_void() +
       ggplot2::coord_cartesian(clip = 'off') +  # to avoid clipping of text
-      ggplot2::theme(plot.margin = unit(c(0.2, 0.4, 0.2, 0.4), "cm"),
-            panel.background = element_rect(fill = "transparent", color = NA),
-            plot.background = element_rect(fill = "transparent", color = NA),
-            legend.background = element_rect(fill = "transparent", color = NA),
-            legend.box.background = element_rect(fill = "transparent", color = NA)
+      ggplot2::theme(plot.margin = ggplot2::unit(c(0.2, 0.4, 0.2, 0.4), "cm"),
+            panel.background = ggplot2::element_rect(fill = "transparent", color = NA),
+            plot.background = ggplot2::element_rect(fill = "transparent", color = NA),
+            legend.background = ggplot2::element_rect(fill = "transparent", color = NA),
+            legend.box.background = ggplot2::element_rect(fill = "transparent", color = NA)
       ) 
   }
   
@@ -172,7 +176,7 @@ elevation_plot <- function(origin = "utrecht, netherlands",
       ggplot2::theme_void()
     
     plot_elev_delta <- plot_elevation + plot_delta + 
-      patchwork::plot_layout(widths = unit(c(4, 1), c("null")))
+      patchwork::plot_layout(widths = ggplot2::unit(c(4, 1), c("null")))
     
     plot_elevation <- plot_box + 
       patchwork::inset_element(plot_elev_delta, left = 0.005, bottom = 0, right = 0.93, top = 1)

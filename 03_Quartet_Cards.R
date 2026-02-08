@@ -10,6 +10,9 @@ library(ggmap)
 library(geosphere)
 
 
+# API key to connect R to google maps! see tutorial https://www.appsilon.com/post/r-ggmap
+ggmap::register_google(key = "AIzaSyDJQFPopCR3VfdxOfpOsazM7wtU3_Formg", write = TRUE)
+
 # read data --------------------------------------------------------------------
 source('01_Data_Prep.R')
 
@@ -21,8 +24,9 @@ d.cards.traits |>
 set.seed(42)
 
 # (1) visualize traits in sliders with a box around ----------------------------
-plot.A <- trait_plot(color_traits = c("#f330e1", "#f46331", "#f8c330", "#31f330", "#31f8c3")
-                     ); plot.A
+plot.A <- trait_plot(
+  color_traits = c("#f330e1", "#f46331", "#f8c330", "#31f330", "#31f8c3")
+  ); plot.A
 
 # (2) plot elevation profile ---------------------------------------------------
 route <- elevation_plot(origin = "Baden, Switzerland", 
@@ -34,7 +38,7 @@ plot.B <- route$plot_elevation; plot.B
 
 # (3) combine plots ------------------------------------------------------------
 plot.B / plot.A +
-  plot_layout(heights = unit(c(2, 5), c("null")) )
+  patchwork::plot_layout(heights = ggplot2::unit(c(2, 5), c("null")) )
 
 
 # (4) save
