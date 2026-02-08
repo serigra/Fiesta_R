@@ -120,7 +120,7 @@ elevation_plot <- function(origin = "utrecht, netherlands",
     ggplot2::ggplot(data_elevation, aes(x = cumulative_distance, y = elevation)) +
     #ggplot2::geom_line(color = "steelblue", size = 1) +
     ggplot2::geom_smooth(method = "loess", se = FALSE, span = 0.1, color = color_profile, size = 1) +
-    ylim(0, max_ylim) +
+    ggplot2::ylim(0, max_ylim) +
     ggplot2::theme_void() 
   
   
@@ -138,11 +138,11 @@ elevation_plot <- function(origin = "utrecht, netherlands",
                 vjust = -0.3 , hjust = 0.1, color = color_profile, size = 3.7) +
       ggplot2::geom_text(data = data_elevation |> tail(1), aes(x = cumulative_distance, y = elevation, label = destination_label),
                 vjust = -0.3 , hjust = 0.8, color = color_profile, size = 3.7) +
-      ylim(range_elevation$plot_min, 
+      ggplot2::ylim(range_elevation$plot_min, 
            range_elevation$plot_max) + 
       ggplot2::theme_void() +
       ggplot2::coord_cartesian(clip = 'off') +  # to avoid clipping of text
-      theme(plot.margin = unit(c(0.2, 0.4, 0.2, 0.4), "cm"),
+      ggplot2::theme(plot.margin = unit(c(0.2, 0.4, 0.2, 0.4), "cm"),
             panel.background = element_rect(fill = "transparent", color = NA),
             plot.background = element_rect(fill = "transparent", color = NA),
             legend.background = element_rect(fill = "transparent", color = NA),
@@ -152,17 +152,7 @@ elevation_plot <- function(origin = "utrecht, netherlands",
   
   if(add_box){ # ---------------------------------------------------------------
     
-    box_shape <- data.frame(
-      x = c(0, 1, 1, 0),
-      y = c(0, 0, 1, 1)
-    )
-
-    plot_box <- ggplot2::ggplot(box_shape, aes(x = x, y = y)) +
-      ggforce::geom_shape(expand = unit(0.1, 'cm'), radius = unit(0.1, 'cm'),
-                 fill = color_box) +
-      ggplot2::geom_polygon(fill = background_box)+
-      theme_void() +
-      theme(plot.margin = margin(0.02,0.02,0.02,0.02, 'cm'))
+    plot_box <- box_plot(color_box = color_box, background_box = background_box)
     
     # calculate elevation difference between start and end point
     delta_elevation <- tail(data_elevation$elevation, 1) - head(data_elevation$elevation, 1)
@@ -174,12 +164,12 @@ elevation_plot <- function(origin = "utrecht, netherlands",
     color_profile_dark <- monochromeR::generate_palette(color_profile, modification = "go_darker", n_colors = 5)[2]
     
     plot_delta <- ggplot2::ggplot() +
-      annotate("text",
+      ggplot2::annotate("text",
                x = 0.5, y = 0.5,
                label = bquote(atop(Delta~Altitude, bold(.(delta_elevation)))),
                size = 5,
                color = color_profile_dark) +
-      theme_void()
+      ggplot2::theme_void()
     
     plot_elev_delta <- plot_elevation + plot_delta + 
       patchwork::plot_layout(widths = unit(c(4, 1), c("null")))
