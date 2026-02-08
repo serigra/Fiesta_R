@@ -78,6 +78,8 @@ elevation_plot <- function(origin = "utrecht, netherlands",
                            background_box = "#f8f8f6"
                            ) {
   
+  # ---------------------------- PREPARE DATA ----------------------------------
+  
   # create labels based on origin and destination
   origin_label <- stringr::str_to_title(stringr::str_extract(origin, "^[^,]+"))
   destination_label <- stringr::str_extract(destination, "^[^,]+")
@@ -110,14 +112,14 @@ elevation_plot <- function(origin = "utrecht, netherlands",
     elevation = elevation_df$elevation
   )
   
-  # ----------------------------------------------------------------------------
+  # --------------------------------- PLOT ROUTE -------------------------------
   
   plot_route <- ggmap::qmap(location = 'zürich', zoom = 8) +  # zoom level, the larger the value, the more detailed the map
     ggplot2::geom_path(
       ggplot2::aes(x = lon, y = lat), color = color_route, linewidth = 1, data = data_route
     )
   
-  # ----------------------------------------------------------------------------
+  # ---------------------------- PLOT ELEVATION PROFILE ------------------------
   
   plot_elevation <- 
     ggplot2::ggplot(data_elevation, ggplot2::aes(x = cumulative_distance, y = elevation)) +
@@ -126,8 +128,9 @@ elevation_plot <- function(origin = "utrecht, netherlands",
     ggplot2::ylim(0, max_ylim) +
     ggplot2::theme_void() 
   
+  # --------------------------- ADD TEXT ANNOTATIONS ---------------------------
   
-  if(add_text){ # --------------------------------------------------------------
+  if(add_text){ 
     
     range_elevation <- data_elevation |> 
       dplyr::summarise(min_elev = min(elevation),
@@ -154,7 +157,9 @@ elevation_plot <- function(origin = "utrecht, netherlands",
       ) 
   }
   
-  if(add_box){ # ---------------------------------------------------------------
+  # ------------------------ ADD BOX & DELTA ELEVATION  ------------------------
+  
+  if(add_box){ 
     
     plot_box <- box_plot(color_box = color_box, background_box = background_box)
     
